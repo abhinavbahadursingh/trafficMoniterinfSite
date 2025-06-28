@@ -1,0 +1,251 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Traffic Monitoring Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: #f5f8ff;
+      color: #333;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 40px;
+      color: #243b55;
+    }
+    .dashboard {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      gap: 30px;
+    }
+    .chart-container {
+      background: #fff;
+      color: #000;
+      border-radius: 15px;
+      padding: 20px;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+      transition: all 0.3s ease;
+    }
+    .chart-container:hover {
+      box-shadow: 0 15px 25px rgba(0,0,0,0.15);
+    }
+    .chart-title {
+      text-align: center;
+      font-size: 1.2rem;
+      font-weight: bold;
+      margin-bottom: 15px;
+      color: #1e2a38;
+    }
+    canvas {
+      width: 100% !important;
+      height: 300px !important;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🚦 Real-Time Traffic Monitoring Dashboard<div style="text-align:center; margin-bottom:20px;">
+    <!-- <button onclick="toggleDarkMode()" style="padding:8px 15px; margin-right:10px;">🌓 Toggle Dark Mode</button> -->
+    <!-- <button onclick="downloadCharts()" style="padding:8px 15px;">⬇️ Download All Charts</button> -->
+  </div></h1>
+  <div class="dashboard">
+    <div class="chart-container">
+      <div class="chart-title">📊 Vehicle Type Distribution</div>
+      <canvas id="vehicleTypeChart"></canvas>
+    </div>
+    <div class="chart-container">
+      <div class="chart-title">📈 Total Vehicles Over Time</div>
+      <canvas id="totalVehiclesChart"></canvas>
+    </div>
+    <div class="chart-container">
+      <div class="chart-title">⚡ Real-Time Speed</div>
+      <canvas id="realTimeSpeedChart"></canvas>
+    </div>
+    <div class="chart-container">
+      <div class="chart-title">🚗 Average Speed</div>
+      <canvas id="averageSpeedChart"></canvas>
+    </div>
+    <div class="chart-container">
+      <div class="chart-title">💥 Crash Incidents</div>
+      <canvas id="crashChart"></canvas>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDd7d-MHWyA0Kl0JmIzvtZ6CiZM1QjuyDM",
+      authDomain: "traffic-monitoring-f490d.firebaseapp.com",
+      databaseURL: "https://traffic-monitoring-f490d-default-rtdb.firebaseio.com",
+      projectId: "traffic-monitoring-f490d",
+      storageBucket: "traffic-monitoring-f490d.appspot.com",
+      messagingSenderId: "572081795374",
+      appId: "1:572081795374:web:da24f2255697d84c454abf"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const ctx = (id) => document.getElementById(id).getContext("2d");
+
+    const vehicleTypeChart = new Chart(ctx("vehicleTypeChart"), {
+      type: "doughnut",
+      data: {
+        labels: ["Bus", "Car", "Truck"],
+        datasets: [{
+          data: [0, 0, 0],
+          backgroundColor: ["#FF6384", "#36A2EB", "#FFCE56"],
+          borderColor: "#fff",
+          borderWidth: 2
+        }]
+      },
+      options: {
+        plugins: {
+          legend: { position: 'bottom' }
+        }
+      }
+    });
+
+    const totalVehiclesChart = new Chart(ctx("totalVehiclesChart"), {
+      type: "line",
+      data: {
+        labels: [],
+        datasets: [{
+          label: "Vehicles",
+          data: [],
+          borderColor: "#36A2EB",
+          fill: true,
+          backgroundColor: "rgba(54,162,235,0.2)",
+          tension: 0.3
+        }]
+      }
+    });
+
+    const realTimeSpeedChart = new Chart(ctx("realTimeSpeedChart"), {
+      type: "line",
+      data: {
+        labels: [],
+        datasets: [{
+          label: "Speed (km/h)",
+          data: [],
+          borderColor: "#FF9800",
+          backgroundColor: "rgba(255,152,0,0.2)",
+          tension: 0.3,
+          fill: true
+        }]
+      }
+    });
+
+    const averageSpeedChart = new Chart(ctx("averageSpeedChart"), {
+      type: "bar",
+      data: {
+        labels: ["Average Speed"],
+        datasets: [{
+          label: "km/h",
+          data: [0],
+          backgroundColor: "#4CAF50"
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        scales: {
+          x: { min: 0, max: 100 }
+        }
+      }
+    });
+
+    const crashChart = new Chart(ctx("crashChart"), {
+      type: "bar",
+      data: {
+        labels: [],
+        datasets: [{
+          label: "Crashes",
+          data: [],
+          backgroundColor: "#E91E63"
+        }]
+      }
+    });
+
+    function updateCharts() {
+      onValue(ref(db, "traffic_data/type_vehicle"), snap => {
+        const d = snap.val() || {};
+        vehicleTypeChart.data.datasets[0].data = ["bus", "car", "truck"].map(t => d[t] || 0);
+        vehicleTypeChart.update();
+      });
+
+      onValue(ref(db, "traffic_data/vehicle_Data/total_vehicle"), snap => {
+        const d = snap.val() || {};
+        const keys = Object.keys(d);
+        totalVehiclesChart.data.labels = keys;
+        totalVehiclesChart.data.datasets[0].data = keys.map(k => d[k]);
+        totalVehiclesChart.update();
+      });
+
+      onValue(ref(db, "traffic_data/speed_Data/real_Time_Speed"), snap => {
+        const d = snap.val() || {};
+        const keys = Object.keys(d);
+        realTimeSpeedChart.data.labels = keys;
+        realTimeSpeedChart.data.datasets[0].data = keys.map(k => d[k]?.time1?.speed || 0);
+        realTimeSpeedChart.update();
+      });
+
+      onValue(ref(db, "traffic_data/speed_Data/average_speed"), snap => {
+        const d = snap.val() || {};
+        const speeds = Object.values(d).map(e => e.speed || 0);
+        const avg = speeds.length ? speeds.reduce((a,b) => a+b,0)/speeds.length : 0;
+        averageSpeedChart.data.datasets[0].data = [Math.round(avg)];
+        averageSpeedChart.update();
+      });
+
+      onValue(ref(db, "traffic_data/crash_vehicle"), snap => {
+        const d = snap.val() || {};
+        const keys = Object.keys(d);
+        crashChart.data.labels = keys;
+        crashChart.data.datasets[0].data = keys.map(() => 1);
+        crashChart.update();
+      });
+    }
+
+    updateCharts();
+    setInterval(updateCharts, 5000);
+  </script>
+
+<script>
+  // Toggle Dark Mode
+  function toggleDarkMode() {
+    document.body.classList.toggle("dark");
+    const isDark = document.body.classList.contains("dark");
+    document.body.style.background = isDark ? "#111" : "#f5f8ff";
+    document.body.style.color = isDark ? "#eee" : "#333";
+    document.querySelectorAll(".chart-container").forEach(c => {
+      c.style.background = isDark ? "#1e1e1e" : "#fff";
+      c.style.color = isDark ? "#eee" : "#000";
+      c.style.boxShadow = isDark
+        ? "0 0 15px rgba(255,255,255,0.1)"
+        : "0 10px 20px rgba(0,0,0,0.1)";
+    });
+  }
+
+  // Export Charts
+  function downloadCharts() {
+    const charts = document.querySelectorAll("canvas");
+    charts.forEach((canvas, index) => {
+      const link = document.createElement("a");
+      link.href = canvas.toDataURL("image/png");
+      link.download = canvas.id + ".png";
+      link.click();
+    });
+  }
+</script>
+</body>
+</html>
+
+</html>

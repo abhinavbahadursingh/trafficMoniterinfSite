@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Stream</title>
+
+  <!-- ✅ Firebase v8 -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; }
+    body {
+      display: flex;
+      flex-direction: column;
+      background: #f4f4f4;
+      height: 100vh;
+      justify-content: center;
+      align-items: center;
+    }
+    .main-content {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      width: calc(100vw - 250px);
+      margin-left: 250px;
+    }
+    .video-container {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+      text-align: center;
+      width: 90%;
+      max-width: 1600px;
+      height: 85vh;
+      display: none;
+      position: relative;
+    }
+    .placeholder {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: url('https://i.pinimg.com/736x/d0/8d/84/d08d845ce6c47edb9c97ab5860407c69.jpg') center/cover no-repeat;
+      border-radius: 10px;
+    }
+    iframe {
+      width: 100%;
+      height: 100%;
+      border-radius: 10px;
+      border: none;
+      position: relative;
+      z-index: 2;
+    }
+    .input-container {
+      text-align: center;
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+      width: 80%;
+      max-width: 600px;
+    }
+    input {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      font-size: 16px;
+      outline: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="main-content">
+    <div class="input-container" id="inputContainer">
+      <h2>🎥 Enter Live URL</h2>
+      <input type="text" id="videoUrl" placeholder="Enter Live Feed URL">
+    </div>
+
+    <div class="video-container" id="videoContainer">
+      <div class="placeholder" id="placeholder"></div>
+      <iframe id="liveVideo" allowfullscreen></iframe>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+<script>
+  // ✅ Firebase Configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyDd7d-MHWyA0Kl0JmIzvtZ6CiZM1QjuyDM",
+    authDomain: "traffic-monitoring-f490d.firebaseapp.com",
+    databaseURL: "https://traffic-monitoring-f490d-default-rtdb.firebaseio.com",
+    projectId: "traffic-monitoring-f490d",
+    storageBucket: "traffic-monitoring-f490d.appspot.com",
+    messagingSenderId: "572081795374",
+    appId: "1:572081795374:web:da24f2255697d84c454abf"
+  };
+
+  // ✅ Initialize Firebase
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
+  // ✅ Extract ID
+  function extractYouTubeID(url) {
+    const match = url.match(/(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)/) ||
+                  url.match(/(?:https?:\/\/)?youtu\.be\/([a-zA-Z0-9_-]+)/);
+    return match ? match[1] : null;
+  }
+
+  // ✅ Load video from Firebase and play
+  window.addEventListener("DOMContentLoaded", () => {
+    db.ref("video_path/url").once("value")
+      .then(snapshot => {
+        const savedUrl = snapshot.val();
+        if (savedUrl) {
+          document.getElementById("videoUrl").value = savedUrl;
+          playVideo(savedUrl);
+        }
+      });
+  });
+
+  // ✅ Play  video
+  function playVideo(url) {
+    const videoId = extractYouTubeID(url);
+    if (videoId) {
+      const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&playsinline=1&controls=0&modestbranding=1&rel=0`;
+      document.getElementById("liveVideo").src = embedUrl;
+      document.getElementById("inputContainer").style.display = "none";
+      document.getElementById("videoContainer").style.display = "block";
+      document.getElementById("placeholder").style.display = "none";
+    }
+  }
+
+  // ✅ Save to Firebase when input detected
+  document.getElementById("videoUrl").addEventListener("input", function () {
+    const url = this.value.trim();
+    if (url.length > 0) {
+      db.ref("video_path/url").set(url) // ✅ Overwrites directly under video_path/url
+        .then(() => {
+          console.log("✅ Saved URL:", url);
+          playVideo(url);
+        })
+        .catch(error => console.error("❌ Firebase Error:", error));
+    }
+  });
+</script>
+
+</body>
+</html>
